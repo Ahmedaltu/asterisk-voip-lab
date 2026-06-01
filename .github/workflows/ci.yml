@@ -20,6 +20,9 @@ jobs:
         run: |
           docker compose version
 
+      - name: Create .env from example
+        run: cp .env.example .env
+
       - name: Validate docker-compose.yml
         run: |
           docker compose config --quiet
