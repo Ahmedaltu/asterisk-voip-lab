@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: local_ai_server
+    static_configs:
+      - targets: ['local_ai_server:15000']
+
+  - job_name: kamailio
+    static_configs:
+      - targets: ['kamailio:9090']
+
+  - job_name: asterisk
+    static_configs:
+      - targets: ['asterisk:8088']

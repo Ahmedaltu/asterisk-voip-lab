@@ -1,0 +1,140 @@
+version: "3.9"
+
+name: voip-lab
+
+networks:
+  voip:
+    driver: bridge
+
+volumes:
+  asterisk-data:
+  grafana-data:
+  models:
+
+services:
+
+  asterisk:
+    image: andrius/asterisk:stable
+    container_name: asterisk
+    networks:
+      - voip
+    ports:
+      - "5061:5060/udp"
+      - "5061:5060/tcp"
+      - "8088:8088"
+      - "10000-10099:10000-10099/udp"
+    volumes:
+      - ./services/pbx/configs:/etc/asterisk
+      - asterisk-data:/var/lib/asterisk
+    restart: unless-stopped
+
+  ai_engine:
+    image: asterisk-ai-voice-agent-ai-engine:latest
+    pull_policy: build
+    build:
+      context: ./ava
+      dockerfile: Dockerfile
+    container_name: ai_engine
+    networks:
+      - voip
+    volumes:
+      - ./ava/src:/app/src
+      - ./ava/main.py:/app/main.py
+      - ./ava-config:/app/config
+      - ./ava/scripts:/app/scripts
+      - ./ava/models:/app/models
+      - ./ava/data:/app/data
+    env_file:
+      - .env
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - HEALTH_BIND_HOST=0.0.0.0
+      - ASTERISK_HOST=asterisk
+      - LOCAL_WS_URL=ws://local_ai_server:8765
+    depends_on:
+      - asterisk
+      - local_ai_server
+    restart: unless-stopped
+
+  local_ai_server:
+    image: asterisk-ai-voice-agent-local-ai-server:latest
+    pull_policy: build
+    build:
+      context: ./ava/local_ai_server
+      dockerfile: Dockerfile
+      args:
+        - INCLUDE_VOSK=true
+        - INCLUDE_PIPER=true
+        - INCLUDE_LLAMA=true
+        - INCLUDE_FASTER_WHISPER=false
+        - INCLUDE_KOKORO=false
+        - INCLUDE_SHERPA=false
+    container_name: local_ai_server
+    networks:
+      - voip
+    ports:
+      - "8765:8765"
+      - "15000:15000"
+    volumes:
+      - models:/app/models
+      - ./ava/data:/app/data
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOCAL_WS_HOST=0.0.0.0
+      - LOCAL_WS_PORT=8765
+    restart: unless-stopped
+
+  kamailio:
+    image: kamailio/kamailio-ci:5.8.0-bookworm
+    container_name: kamailio
+    networks:
+      - voip
+    ports:
+      - "5060:5060/udp"
+      - "5060:5060/tcp"
+    volumes:
+      - ./services/sip-proxy/kamailio.cfg:/etc/kamailio/kamailio.cfg:ro
+    depends_on:
+      - asterisk
+    restart: unless-stopped
+
+  widget:
+    image: nginx:alpine
+    container_name: widget
+    networks:
+      - voip
+    ports:
+      - "3000:80"
+    volumes:
+      - ./services/widget:/usr/share/nginx/html:ro
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: voip-prometheus
+    networks:
+      - voip
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./services/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: voip-grafana
+    networks:
+      - voip
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    depends_on:
+      - prometheus
+    restart: unless-stopped

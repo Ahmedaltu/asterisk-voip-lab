@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VoIP Lab — Browser Softphone</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sip.js/0.21.2/sip.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 32px;
+      width: 340px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+    .subtitle { font-size: 13px; color: #64748b; margin-bottom: 24px; }
+    .status-row { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; font-size: 13px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #475569; transition: background 0.3s; }
+    .dot.connected { background: #22c55e; }
+    .dot.calling { background: #f59e0b; animation: pulse 1s infinite; }
+    .dot.error { background: #ef4444; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+    label { font-size: 12px; color: #94a3b8; display: block; margin-bottom: 6px; }
+    input { width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #e2e8f0; padding: 10px 12px; font-size: 14px; margin-bottom: 16px; outline: none; }
+    input:focus { border-color: #6366f1; }
+    .btn { width: 100%; padding: 12px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-bottom: 8px; }
+    .btn-call { background: #22c55e; color: #000; }
+    .btn-call:hover { background: #16a34a; }
+    .btn-call:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
+    .btn-hangup { background: #ef4444; color: #fff; display: none; }
+    .log { margin-top: 20px; background: #0f172a; border-radius: 8px; padding: 12px; font-size: 11px; font-family: monospace; color: #64748b; height: 100px; overflow-y: auto; }
+    .log-entry { margin-bottom: 2px; }
+    .log-entry.success { color: #22c55e; }
+    .log-entry.error { color: #ef4444; }
+    .log-entry.warn { color: #f59e0b; }
+    audio { display: none; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>VoIP Lab</h1>
+  <p class="subtitle">Browser softphone — SIP.js + WebRTC</p>
+  <div class="status-row">
+    <div class="dot" id="dot"></div>
+    <span id="status-text">Not registered</span>
+  </div>
+  <label>SIP Server</label>
+  <input type="text" id="server" value="localhost">
+  <label>Extension</label>
+  <input type="text" id="ext" value="browser">
+  <label>Password</label>
+  <input type="password" id="pass" value="passbrowser">
+  <label>Call to</label>
+  <input type="text" id="target" value="300">
+  <button class="btn btn-call" id="btn-call" onclick="startCall()">📞 Call</button>
+  <button class="btn btn-hangup" id="btn-hangup" onclick="hangup()">🔴 Hang Up</button>
+  <div class="log" id="log"></div>
+</div>
+<audio id="remoteAudio" autoplay></audio>
+<script>
+let ua = null, session = null;
+function log(msg, type='info') {
+  const el = document.getElementById('log');
+  const entry = document.createElement('div');
+  entry.className = 'log-entry ' + type;
+  entry.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+  el.appendChild(entry);
+  el.scrollTop = el.scrollHeight;
+}
+function setStatus(text, dotClass) {
+  document.getElementById('status-text').textContent = text;
+  document.getElementById('dot').className = 'dot ' + dotClass;
+}
+function startCall() {
+  const server = document.getElementById('server').value.trim();
+  const ext = document.getElementById('ext').value.trim();
+  const pass = document.getElementById('pass').value.trim();
+  const target = document.getElementById('target').value.trim();
+  log('Connecting to ' + server + ' as ' + ext + '...');
+  setStatus('Connecting...', 'calling');
+  document.getElementById('btn-call').disabled = true;
+  const config = {
+    uri: 'sip:' + ext + '@' + server,
+    transportOptions: { server: 'ws://' + server + ':5060' },
+    authorizationUsername: ext,
+    authorizationPassword: pass,
+    displayName: 'Lab ' + ext,
+    sessionDescriptionHandlerFactoryOptions: { constraints: { audio: true, video: false } }
+  };
+  ua = new SIP.UserAgent(config);
+  const registerer = new SIP.Registerer(ua);
+  ua.delegate = {
+    onConnect() { log('Connected', 'success'); registerer.register(); },
+    onDisconnect(e) { log('Disconnected: ' + (e?.message || ''), 'error'); setStatus('Disconnected', 'error'); document.getElementById('btn-call').disabled = false; }
+  };
+  registerer.stateChange.addListener(state => {
+    if (state === SIP.RegistererState.Registered) {
+      log('Registered as ' + ext, 'success');
+      setStatus('Registered — ' + ext, 'connected');
+      makeCall(target, server);
+    }
+  });
+  ua.start();
+}
+function makeCall(target, server) {
+  log('Calling ' + target + '...');
+  setStatus('Calling ' + target + '...', 'calling');
+  const inviter = new SIP.Inviter(ua, SIP.UserAgent.makeURI('sip:' + target + '@' + server));
+  inviter.stateChange.addListener(state => {
+    log('Call state: ' + state);
+    if (state === SIP.SessionState.Established) {
+      log('Call connected!', 'success');
+      setStatus('In call', 'connected');
+      document.getElementById('btn-hangup').style.display = 'block';
+      const stream = new MediaStream();
+      inviter.sessionDescriptionHandler.peerConnection.getReceivers().forEach(r => { if (r.track) stream.addTrack(r.track); });
+      document.getElementById('remoteAudio').srcObject = stream;
+    }
+    if (state === SIP.SessionState.Terminated) {
+      log('Call ended', 'warn');
+      setStatus('Registered', 'connected');
+      document.getElementById('btn-hangup').style.display = 'none';
+      document.getElementById('btn-call').disabled = false;
+    }
+  });
+  inviter.invite().catch(e => { log('Failed: ' + e.message, 'error'); document.getElementById('btn-call').disabled = false; });
+  session = inviter;
+}
+function hangup() { if (session) { session.bye(); session = null; } }
+</script>
+</body>
+</html>

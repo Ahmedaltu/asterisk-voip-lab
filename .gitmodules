@@ -1,0 +1,3 @@
+[submodule "ava"]
+	path = ava
+	url = https://github.com/hkjarral/Asterisk-AI-Voice-Agent.git
