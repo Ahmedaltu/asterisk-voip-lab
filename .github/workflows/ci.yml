@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+
+  validate-docker-compose:
+    name: Validate Docker Compose
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Docker Compose
+        run: |
+          docker compose version
+
+      - name: Validate docker-compose.yml
+        run: |
+          docker compose config --quiet
+          echo "docker-compose.yml is valid"
+
+  validate-asterisk-config:
+    name: Validate Asterisk Config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check required config files exist
+        run: |
+          files=(
+            "services/pbx/configs/pjsip.conf"
+            "services/pbx/configs/extensions.conf"
+            "services/pbx/configs/ari.conf"
+            "services/pbx/configs/http.conf"
+          )
+          for f in "${files[@]}"; do
+            if [ ! -f "$f" ]; then
+              echo "MISSING: $f"
+              exit 1
+            fi
+            echo "OK: $f"
+          done
+
+      - name: Check no hardcoded passwords
+        run: |
+          if grep -r "pass101\|pass102\|passbrowser" services/pbx/configs/; then
+            echo "ERROR: hardcoded passwords found in configs"
+            exit 1
+          fi
+          echo "No hardcoded passwords found"
+
+      - name: Check extensions.conf has required extensions
+        run: |
+          for ext in 101 102 200 300; do
+            if ! grep -q "exten => $ext" services/pbx/configs/extensions.conf; then
+              echo "MISSING extension: $ext"
+              exit 1
+            fi
+            echo "OK: extension $ext"
+          done
+
+      - name: Check Kamailio config exists
+        run: |
+          if [ ! -f "services/sip-proxy/kamailio.cfg" ]; then
+            echo "MISSING: kamailio.cfg"
+            exit 1
+          fi
+          echo "OK: kamailio.cfg"
+
+  validate-env-template:
+    name: Validate Environment Template
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check .env.example exists and has required vars
+        run: |
+          vars=(
+            "ASTERISK_HOST"
+            "ASTERISK_PASSWORD"
+            "LOCAL_WS_URL"
+            "SIP_PASS_101"
+            "SIP_PASS_102"
+            "SIP_PASS_BROWSER"
+          )
+          for var in "${vars[@]}"; do
+            if ! grep -q "^$var=" .env.example; then
+              echo "MISSING var in .env.example: $var"
+              exit 1
+            fi
+            echo "OK: $var"
+          done
+
+      - name: Check .env is not committed
+        run: |
+          if git ls-files --error-unmatch .env 2>/dev/null; then
+            echo "ERROR: .env is tracked by git — remove it"
+            exit 1
+          fi
+          echo "OK: .env is not tracked"
