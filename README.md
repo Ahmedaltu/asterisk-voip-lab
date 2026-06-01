@@ -70,7 +70,7 @@ Foundation for an AI-powered voice support product for Shopify merchants.
     101       pass101      Your phone (Linphone)
     102       pass102      PC softphone
     browser   passbrowser  Browser widget
-    200       —            AI agent
+    200       —            AI agent (AVA) — in progress
     300       —            Echo test
 
 ## Debug
