@@ -1,5 +1,30 @@
 # asterisk-voip-lab
 
+## Architecture
+
+```mermaid
+graph TD
+    A[Linphone / Zoiper] -->|SIP :5060| K
+    B[Browser SIP.js] -->|SIP :5060| K
+    K[Kamailio<br/>SIP proxy] -->|SIP :5061| AST
+    AST[Asterisk PBX<br/>:5061 / :8088] -->|ARI :8088| AVA
+    AST <-->|RTP :10000-10099| A
+    AVA[AVA ai_engine<br/>AudioSocket :8090] -->|WebSocket :8765| AI
+    AI[local_ai_server<br/>Vosk · Piper · TinyLlama]
+    AST --> G[Grafana :3001]
+    AST --> P[Prometheus :9091]
+
+    subgraph Oracle Cloud VM
+        K
+        AST
+        AVA
+        AI
+        G
+        P
+    end
+```
+
+
 Containerised VoIP lab stack built with Kamailio, Asterisk, and AVA AI engine.
 Foundation for an AI-powered voice support product for Shopify merchants.
 
