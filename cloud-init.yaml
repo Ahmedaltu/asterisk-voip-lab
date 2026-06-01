@@ -1,0 +1,70 @@
+#cloud-config
+# asterisk-voip-lab — Oracle Cloud (Ubuntu 22.04, Ampere A1)
+# Usage: paste into OCI "Cloud-init script" field when creating instance
+# Or apply manually: sudo cloud-init single --name write_files
+
+package_update: true
+package_upgrade: false
+
+packages:
+  - docker.io
+  - git
+  - python3
+  - sngrep
+
+runcmd:
+  # Add ubuntu user to docker group
+  - usermod -aG docker ubuntu
+
+  # Fix Oracle's default iptables FORWARD rule that blocks Docker containers
+  - iptables -D FORWARD -j REJECT --reject-with icmp-host-prohibited || true
+
+  # Open required ports in iptables
+  - iptables -I INPUT -p udp --dport 5060 -j ACCEPT
+  - iptables -I INPUT -p tcp --dport 5060 -j ACCEPT
+  - iptables -I INPUT -p tcp --dport 8088 -j ACCEPT
+  - iptables -I INPUT -p udp --dport 10000:10099 -j ACCEPT
+  - iptables -I INPUT -p tcp --dport 3000 -j ACCEPT
+  - iptables -I INPUT -p tcp --dport 3001 -j ACCEPT
+  - iptables -I INPUT -p tcp --dport 9091 -j ACCEPT
+
+  # Persist iptables rules across reboots
+  - apt-get install -y iptables-persistent
+  - netfilter-persistent save
+
+  # Enable and start Docker
+  - systemctl enable docker
+  - systemctl start docker
+
+  # Clone the repo
+  - git clone https://github.com/Ahmedaltu/asterisk-voip-lab.git /home/ubuntu/asterisk-voip-lab
+  - cd /home/ubuntu/asterisk-voip-lab && git submodule update --init --recursive
+
+  # Set correct ownership
+  - chown -R ubuntu:ubuntu /home/ubuntu/asterisk-voip-lab
+
+  # Copy default Asterisk configs from image
+  - docker run --rm andrius/asterisk:stable cat /etc/asterisk/asterisk.conf > /home/ubuntu/asterisk-voip-lab/services/pbx/configs/asterisk.conf
+  - docker run --rm andrius/asterisk:stable cat /etc/asterisk/modules.conf > /home/ubuntu/asterisk-voip-lab/services/pbx/configs/modules.conf
+  - chown ubuntu:ubuntu /home/ubuntu/asterisk-voip-lab/services/pbx/configs/asterisk.conf
+  - chown ubuntu:ubuntu /home/ubuntu/asterisk-voip-lab/services/pbx/configs/modules.conf
+
+  # Copy env file
+  - cp /home/ubuntu/asterisk-voip-lab/.env.example /home/ubuntu/asterisk-voip-lab/.env
+
+  # Start Asterisk
+  - >
+    docker run -d
+    --name asterisk
+    --restart unless-stopped
+    -p 8088:8088
+    -p 5060:5060/udp
+    -p 5060:5060/tcp
+    -p 10000-10099:10000-10099/udp
+    -v /home/ubuntu/asterisk-voip-lab/services/pbx/configs:/etc/asterisk
+    andrius/asterisk:stable
+
+final_message: |
+  asterisk-voip-lab provisioning complete.
+  Asterisk is running. Register a SIP client to 5060 and dial 300 for echo test.
+  Repo: /home/ubuntu/asterisk-voip-lab
