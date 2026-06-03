@@ -18,7 +18,7 @@ services:
       - voip
     ports:
       - "5061:5060/udp"
-      - "5061:5060/tcp"
+      - "5062:5060/tcp"
       - "8088:8088"
       - "10000-10099:10000-10099/udp"
     volumes:
@@ -131,7 +131,7 @@ services:
     volumes:
       - grafana-data:/var/lib/grafana
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_ADMIN_PASSWORD:-admin}
       - GF_USERS_ALLOW_SIGN_UP=false
     depends_on:
       - prometheus

@@ -52,17 +52,8 @@ runcmd:
   # Copy env file
   - cp /home/ubuntu/asterisk-voip-lab/.env.example /home/ubuntu/asterisk-voip-lab/.env
 
-  # Start Asterisk
-  - >
-    docker run -d
-    --name asterisk
-    --restart unless-stopped
-    -p 8088:8088
-    -p 5060:5060/udp
-    -p 5060:5060/tcp
-    -p 10000-10099:10000-10099/udp
-    -v /home/ubuntu/asterisk-voip-lab/services/pbx/configs:/etc/asterisk
-    andrius/asterisk:stable
+  # Start full stack
+  - cd /home/ubuntu/asterisk-voip-lab && docker compose up -d --build
 
 final_message: |
   asterisk-voip-lab provisioning complete.
