@@ -41,9 +41,9 @@ external_media:
   port_range: 18080:18099
   rtp_host: 0.0.0.0
   rtp_port: 18080
-  advertise_host: 10.0.0.218
+  advertise_host: ai_engine
   allowed_remote_hosts:
-    - 172.17.0.2
+    - asterisk
   lock_remote_endpoint: false
 
 # Playback Mode - File mode is the most validated/robust option for pipelines (streaming-first is supported with fallback)
@@ -182,8 +182,8 @@ providers:
     stt_model: models/stt/vosk-model-small-en-us-0.15
     temperature: 0.4
     tts_voice: models/tts/en_US-lessac-medium.onnx
-    ws_url: ${LOCAL_WS_URL:-ws://127.0.0.1:8765}
-    auth_token: ${LOCAL_WS_AUTH_TOKEN:-}
+    ws_url: ${LOCAL_WS_URL:=ws://local_ai_server:8765}
+    auth_token: ${LOCAL_WS_AUTH_TOKEN:=}
 
 # LLM Fallback Configuration
 llm:

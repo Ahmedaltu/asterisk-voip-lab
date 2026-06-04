@@ -35,6 +35,9 @@ services:
     container_name: ai_engine
     networks:
       - voip
+    ports:
+      - "18080:18080/udp"
+      - "15001:15000"
     volumes:
       - ./ava/src:/app/src
       - ./ava/main.py:/app/main.py
@@ -50,6 +53,11 @@ services:
       - HEALTH_BIND_HOST=0.0.0.0
       - ASTERISK_HOST=asterisk
       - LOCAL_WS_URL=ws://local_ai_server:8765
+      - LOCAL_WS_AUTH_TOKEN=voiplab-secret-token
+      - ASTERISK_ARI_USERNAME=ava
+      - ASTERISK_ARI_PASSWORD=ava-secret
+      - ASTERISK_ARI_PORT=8088
+      - LOCAL_AI_MODE=full
     depends_on:
       - asterisk
       - local_ai_server
@@ -83,21 +91,23 @@ services:
       - PYTHONUNBUFFERED=1
       - LOCAL_WS_HOST=0.0.0.0
       - LOCAL_WS_PORT=8765
+      - LOCAL_WS_AUTH_TOKEN=voiplab-secret-token
+      - LOCAL_AI_MODE=full
     restart: unless-stopped
 
-  kamailio:
-    image: kamailio/kamailio-ci:5.8.0-bookworm
-    container_name: kamailio
-    networks:
-      - voip
-    ports:
-      - "5060:5060/udp"
-      - "5060:5060/tcp"
-    volumes:
-      - ./services/sip-proxy/kamailio.cfg:/etc/kamailio/kamailio.cfg:ro
-    depends_on:
-      - asterisk
-    restart: unless-stopped
+  # kamailio:
+  #   image: kamailio/kamailio-ci:5.8.0-bookworm
+  #   container_name: kamailio
+  #   networks:
+  #     - voip
+  #   ports:
+  #     - "5060:5060/udp"
+  #     - "5060:5060/tcp"
+  #   volumes:
+  #     - ./services/sip-proxy/kamailio.cfg:/etc/kamailio/kamailio.cfg:ro
+  #   depends_on:
+  #     - asterisk
+  #   restart: unless-stopped
 
   widget:
     image: nginx:alpine

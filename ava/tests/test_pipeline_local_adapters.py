@@ -210,3 +210,26 @@ async def test_pipeline_orchestrator_resolves_local_adapters():
     assert resolution.pipeline_name == "local_only"
 
     await orchestrator.stop()
+
+
+@pytest.mark.asyncio
+async def test_local_adapter_validate_connectivity_uses_provider_ws_url(monkeypatch):
+    app_config = _build_app_config()
+    app_config.providers["local"]["ws_url"] = "ws://local_ai_server:8765"
+    provider_config = LocalProviderConfig(**app_config.providers["local"])
+    adapter = LocalSTTAdapter("local_stt", app_config, provider_config, {})
+
+    captured = {}
+
+    async def fake_test_websocket_connection(url, api_key=None, timeout=5.0):
+        captured["url"] = url
+        captured["timeout"] = timeout
+        return {"healthy": True, "error": None, "details": {}}
+
+    monkeypatch.setattr(adapter, "_test_websocket_connection", fake_test_websocket_connection)
+
+    result = await adapter.validate_connectivity({})
+
+    assert result["healthy"] is True
+    assert captured["url"] == "ws://local_ai_server:8765"
+    assert captured["timeout"] == 0.5

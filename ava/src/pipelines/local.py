@@ -267,6 +267,13 @@ class _LocalAdapterBase:
         merged.setdefault("chunk_ms", merged.get("chunk_ms", 200))
         return merged
 
+    async def validate_connectivity(self, options: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate connectivity for local pipeline adapters using provider config."""
+        merged = self._compose_options(options)
+        ws_url = merged.get("ws_url") or _DEFAULT_WS_URL
+        timeout = float(merged.get("connect_timeout_sec", 5.0))
+        return await self._test_websocket_connection(ws_url, api_key=None, timeout=timeout)
+
     async def _send_json(self, session: _LocalSessionState, payload: Dict[str, Any]) -> None:
         try:
             await session.websocket.send(json.dumps(payload))
