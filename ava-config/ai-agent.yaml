@@ -5,6 +5,7 @@ audio_transport: audiosocket
 audiosocket:
   host: "0.0.0.0"
   port: 8090
+  advertise_host: "ai_engine"
   format: ulaw
 
 ari:
@@ -37,6 +38,7 @@ providers:
   local:
     enabled: true
     ws_url: "ws://local_ai_server:8765"
+    auth_token: "voiplab-secret-token"
     connect_timeout_sec: 5.0
     response_timeout_sec: 15.0
     chunk_ms: 320
@@ -46,18 +48,21 @@ providers:
     enabled: true
     capabilities: [stt]
     ws_url: "ws://local_ai_server:8765"
+    auth_token: "voiplab-secret-token"
 
   local_llm:
     type: local
     enabled: true
     capabilities: [llm]
     ws_url: "ws://local_ai_server:8765"
+    auth_token: "voiplab-secret-token"
 
   local_tts:
     type: local
     enabled: true
     capabilities: [tts]
     ws_url: "ws://local_ai_server:8765"
+    auth_token: "voiplab-secret-token"
 
 contexts:
   default:

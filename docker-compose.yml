@@ -17,8 +17,7 @@ services:
     networks:
       - voip
     ports:
-      - "5061:5060/udp"
-      - "5062:5060/tcp"
+      - "5061:5061/udp"
       - "8088:8088"
       - "10000-10099:10000-10099/udp"
     volumes:
@@ -36,6 +35,7 @@ services:
     networks:
       - voip
     ports:
+      - "8090:8090"
       - "18080:18080/udp"
       - "15001:15000"
     volumes:
@@ -83,7 +83,7 @@ services:
       - "8765:8765"
       - "15000:15000"
     volumes:
-      - models:/app/models
+      - ./ava/models:/app/models
       - ./ava/data:/app/data
     env_file:
       - .env
